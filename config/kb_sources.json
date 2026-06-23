@@ -1,0 +1,808 @@
+{
+  "schema_version": "0.1",
+  "description": "PersTox-Agent external knowledge-base sources classified for Agent retrieval: local_full, hybrid, api_cache.",
+  "strategies": {
+    "local_full": "Download or import a versioned local snapshot. Agent retrieval should use local structured/text indexes first.",
+    "hybrid": "Keep a curated local subset or snapshot, and use API/landing pages for long-tail, latest checks, or license-controlled updates.",
+    "api_cache": "Query on demand through a connector and cache raw responses plus evidence metadata."
+  },
+  "sources": [
+    {
+      "id": "rxnorm",
+      "name": "RxNorm",
+      "module": "drug_identity",
+      "tier": "T1",
+      "agent_strategy": "hybrid",
+      "access": "api",
+      "mvp": true,
+      "landing_page": "https://lhncbc.nlm.nih.gov/RxNav/APIs/",
+      "license_note": "Use API for normalization and cache responses; optionally install RxNav-in-a-Box for local use."
+    },
+    {
+      "id": "atc",
+      "name": "WHO ATC",
+      "module": "drug_identity",
+      "tier": "T1",
+      "agent_strategy": "hybrid",
+      "access": "direct",
+      "mvp": true,
+      "landing_page": "https://www.whocc.no/atc_ddd_index/",
+      "downloads": [
+        {
+          "label": "ATC level 1-4 classification tree (NLM RxClass snapshot)",
+          "url": "https://rxnav.nlm.nih.gov/REST/rxclass/allClasses.json?classTypes=ATC1-4",
+          "filename": "atc1-4_rxclass.json"
+        }
+      ],
+      "license_note": "Route A (local snapshot + API): NLM RxClass provides the ATC level 1-4 tree (1319 classes) and drug->ATC mappings license-cleanly; see api_examples atc_by_drug / atc_members. Route B (official complete index): ATC level-5 substance codes and DDD values are not in RxClass; apply to WHOCC (https://www.whocc.no/atc_ddd_index_and_guidelines/order/) for the official electronic ATC Index, place under data/raw/atc_whocc/ manually. WHOCC terms: attribution required, no commercial redistribution, no manipulation of the material."
+    },
+    {
+      "id": "drugbank",
+      "name": "DrugBank",
+      "module": "drug_identity",
+      "tier": "T2",
+      "agent_strategy": "local_full",
+      "access": "manual_license",
+      "mvp": true,
+      "version": null,
+      "landing_page": "https://go.drugbank.com/releases/latest",
+      "manual_files": [
+        {
+          "filename": "drugbank_full_database.xml",
+          "role": "full_database",
+          "description": "DrugBank full release XML: drug identity (DrugBank ID, name, synonyms, brands), external xrefs (CAS, RxNorm, ChEMBL, PubChem, UniProt), targets/enzymes/transporters/carriers, and drug-drug interactions. ~1.5GB uncompressed; normalize a human/approved-drug subset after import.",
+          "use": "Local drug identity normalization, target/enzyme (DTI) retrieval, and DDI rule assembly."
+        }
+      ],
+      "license_note": "Local-deployment source, NOT API. Rationale: the free path is a license-gated full-database download (academic non-commercial license via application; commercial use requires a paid license). The DrugBank Clinical/ML API is a separate paid product with no free public REST endpoint, so API retrieval is not viable as a default and would add latency for data that only changes per release. Treat like MedDRA: place an approved DrugBank export under data/raw/drugbank/ manually; never auto-downloaded. Keep raw read-only; write derived/normalized tables to data/normalized/drugbank/. Respect DrugBank attribution and non-commercial terms; feeds drug_identity and the ddi_rules library."
+    },
+    {
+      "id": "pubchem",
+      "name": "PubChem",
+      "module": "drug_identity",
+      "tier": "T2.5",
+      "agent_strategy": "api_cache",
+      "access": "api",
+      "mvp": true,
+      "landing_page": "https://pubchem.ncbi.nlm.nih.gov/docs/pug-rest",
+      "license_note": "Use PUG-REST for long-tail structure lookup and cache responses."
+    },
+    {
+      "id": "chembl",
+      "name": "ChEMBL",
+      "module": "drug_identity",
+      "tier": "T2.6",
+      "agent_strategy": "hybrid",
+      "access": "api",
+      "mvp": true,
+      "large": true,
+      "landing_page": "https://chembl.gitbook.io/chembl-interface-documentation/downloads",
+      "downloads": [
+        {
+          "label": "ChEMBL latest SQLite archive",
+          "url": "https://ftp.ebi.ac.uk/pub/databases/chembl/ChEMBLdb/latest/chembl_sqlite.tar.gz",
+          "filename": "chembl_sqlite.tar.gz",
+          "enabled": false
+        }
+      ],
+      "license_note": "Large download. For MVP, prefer local curated hERG/DTI subsets plus ChEMBL API fallback."
+    },
+    {
+      "id": "admetsar3",
+      "name": "admetSAR 3.0",
+      "module": "admet",
+      "tier": "experimental T2 / predicted T3",
+      "agent_strategy": "local_full",
+      "access": "landing_page",
+      "mvp": true,
+      "landing_page": "https://lmmd.ecust.edu.cn/admetsar3/",
+      "license_note": "Download terms and dataset links should be checked manually; this is a first-stage core local source."
+    },
+    {
+      "id": "uniprot_swissprot",
+      "name": "UniProt Swiss-Prot",
+      "module": "gene_protein",
+      "tier": "T1",
+      "agent_strategy": "local_full",
+      "access": "direct",
+      "mvp": true,
+      "large": true,
+      "landing_page": "https://www.uniprot.org/help/downloads",
+      "downloads": [
+        {
+          "label": "Reviewed human UniProtKB XML",
+          "url": "https://rest.uniprot.org/uniprotkb/stream?compressed=true&format=xml&query=%28reviewed%3Atrue%29%20AND%20%28organism_id%3A9606%29",
+          "filename": "uniprot_sprot_human.xml.gz"
+        }
+      ],
+      "license_note": "Use reviewed human subset for MVP local protein identity and function."
+    },
+    {
+      "id": "hgnc",
+      "name": "HGNC",
+      "module": "gene_protein",
+      "tier": "T1",
+      "agent_strategy": "local_full",
+      "access": "direct",
+      "mvp": true,
+      "landing_page": "https://www.genenames.org/download/archive/",
+      "downloads": [
+        {
+          "label": "HGNC complete gene set JSON",
+          "url": "https://storage.googleapis.com/public-download-files/hgnc/json/json/hgnc_complete_set.json",
+          "filename": "hgnc_complete_set.json"
+        }
+      ],
+      "license_note": "Localize for gene symbol normalization and xrefs."
+    },
+    {
+      "id": "ncbi_gene",
+      "name": "NCBI Gene",
+      "module": "gene_protein",
+      "tier": "T1",
+      "agent_strategy": "hybrid",
+      "access": "direct",
+      "mvp": true,
+      "large": true,
+      "landing_page": "https://ftp.ncbi.nlm.nih.gov/gene/DATA/",
+      "downloads": [
+        {
+          "label": "NCBI gene_info",
+          "url": "https://ftp.ncbi.nlm.nih.gov/gene/DATA/gene_info.gz",
+          "filename": "gene_info.gz"
+        }
+      ],
+      "license_note": "Large all-organism file; normalize human subset after download."
+    },
+    {
+      "id": "ensembl",
+      "name": "Ensembl",
+      "module": "gene_protein",
+      "tier": "T2",
+      "agent_strategy": "hybrid",
+      "access": "api",
+      "mvp": false,
+      "landing_page": "https://rest.ensembl.org/",
+      "license_note": "Use API for long-tail gene/transcript annotation; localize only selected human xrefs if needed."
+    },
+    {
+      "id": "pdb",
+      "name": "Protein Data Bank",
+      "module": "gene_protein",
+      "tier": "T2",
+      "agent_strategy": "api_cache",
+      "access": "api",
+      "mvp": false,
+      "landing_page": "https://data.rcsb.org/",
+      "license_note": "Use on-demand API metadata lookup; do not download full structures for MVP."
+    },
+    {
+      "id": "reactome",
+      "name": "Reactome",
+      "module": "pathway",
+      "tier": "T2",
+      "agent_strategy": "local_full",
+      "access": "direct",
+      "mvp": true,
+      "landing_page": "https://reactome.org/download-data",
+      "downloads": [
+        {
+          "label": "UniProt to Reactome pathway mapping",
+          "url": "https://reactome.org/download/current/UniProt2Reactome_All_Levels.txt",
+          "filename": "UniProt2Reactome_All_Levels.txt"
+        },
+        {
+          "label": "Reactome pathways hierarchy",
+          "url": "https://reactome.org/download/current/ReactomePathways.txt",
+          "filename": "ReactomePathways.txt"
+        }
+      ],
+      "license_note": "Localize pathway mappings for mechanism-chain retrieval; API can be used for latest checks."
+    },
+    {
+      "id": "kegg",
+      "name": "KEGG",
+      "module": "pathway",
+      "tier": "T2",
+      "agent_strategy": "hybrid",
+      "access": "manual_license",
+      "mvp": false,
+      "landing_page": "https://www.kegg.jp/kegg/rest/keggapi.html",
+      "license_note": "License-sensitive. Use only allowed API/snapshot terms."
+    },
+    {
+      "id": "go",
+      "name": "Gene Ontology",
+      "module": "pathway",
+      "tier": "T2",
+      "agent_strategy": "local_full",
+      "access": "direct",
+      "mvp": true,
+      "landing_page": "https://geneontology.org/docs/download-ontology/",
+      "downloads": [
+        {
+          "label": "GO basic ontology",
+          "url": "https://current.geneontology.org/ontology/go-basic.obo",
+          "filename": "go-basic.obo"
+        },
+        {
+          "label": "Human GO annotations",
+          "url": "https://current.geneontology.org/annotations/goa_human.gaf.gz",
+          "filename": "goa_human.gaf.gz"
+        }
+      ],
+      "license_note": "Localize for protein-function and biological-process retrieval."
+    },
+    {
+      "id": "wikipathways",
+      "name": "WikiPathways",
+      "module": "pathway",
+      "tier": "T2-T3",
+      "agent_strategy": "hybrid",
+      "access": "direct",
+      "mvp": false,
+      "large": true,
+      "landing_page": "https://data.wikipathways.org/current/",
+      "downloads": [
+        {
+          "label": "Current GPML archive",
+          "url": "https://data.wikipathways.org/current/gpml/wikipathways-20240410-gpml-Homo_sapiens.zip",
+          "filename": "wikipathways_human_gpml.zip",
+          "enabled": false
+        }
+      ],
+      "license_note": "Manifest entry is disabled because date-stamped filenames change; use landing page or API."
+    },
+    {
+      "id": "msigdb",
+      "name": "MSigDB",
+      "module": "pathway",
+      "tier": "T2-T3",
+      "agent_strategy": "hybrid",
+      "access": "manual_license",
+      "mvp": false,
+      "landing_page": "https://www.gsea-msigdb.org/gsea/msigdb",
+      "license_note": "Registration/license terms apply. Localize only relevant gene sets after approval."
+    },
+    {
+      "id": "meddra",
+      "name": "MedDRA",
+      "module": "ade_terms",
+      "tier": "T1",
+      "agent_strategy": "local_full",
+      "access": "manual_license",
+      "mvp": true,
+      "version": "28.1",
+      "landing_page": "https://www.meddra.org/",
+      "manual_files": [
+        {
+          "filename": "MedDRA 28.1 术语全集.xlsx",
+          "role": "full_hierarchy",
+          "sheet": "层级结构分析",
+          "description": "Long-format multi-axial hierarchy: one row per term-x-SOC link, includes secondary SOC (主SOC=N) rows. Columns: 行ID/术语/代码/层级(LLT|PT)/PT/PT代码/HLT/HLT代码/HLGT/HLGT代码/SOC/SOC代码/主SOC. Header on sheet row 5. Chinese term names only.",
+          "use": "Multi-axial toxicity aggregation where one ADR maps to multiple system-organ classes."
+        },
+        {
+          "filename": "meddra_primary_soc.xlsx",
+          "role": "primary_soc",
+          "sheet": "primary_soc",
+          "description": "Wide-format primary-axis table: one row per LLT (90471 unique), bilingual EN/CN, full LLT->PT->HLT->HLGT->SOC chain on the primary SOC only. Columns: llt_code/llt_name_en/llt_name_cn/llt_currency/pt_code/pt_name_en/pt_name_cn/hlt_code/hlt_name_en/hlt_name_cn/hlgt_code/hlgt_name_en/hlgt_name_cn/soc_code/soc_name_en/soc_name_cn/soc_abbrev/primary_soc. Equals the 主SOC=Y subset of full_hierarchy.",
+          "use": "Analysis-ready term normalization and PT->primary-SOC lookup; preferred for build."
+        }
+      ],
+      "license_note": "License-gated (MSSO subscription). Place approved MedDRA distribution under data/raw/meddra/ manually; never auto-downloaded. Keep raw read-only; write derived/normalized tables to a separate path. Two files registered: full_hierarchy (multi-axial, secondary SOC included) and primary_soc (primary axis only, bilingual). primary_soc == 主SOC=Y subset of full_hierarchy."
+    },
+    {
+      "id": "ctcae_v5",
+      "name": "CTCAE v5.0",
+      "module": "ade_terms",
+      "tier": "T1",
+      "agent_strategy": "local_full",
+      "access": "direct",
+      "mvp": true,
+      "landing_page": "https://ctep.cancer.gov/protocoldevelopment/electronic_applications/ctc.htm",
+      "downloads": [
+        {
+          "label": "CTCAE v5.0 XLSX",
+          "url": "https://dctd.cancer.gov/research/ctep-trials/trial-development/ctcae-v5.0.xlsx",
+          "filename": "CTCAE_v5.0.xlsx"
+        }
+      ],
+      "license_note": "Localize for severity alignment."
+    },
+    {
+      "id": "adrecs",
+      "name": "ADReCS",
+      "module": "ade_terms",
+      "tier": "T2",
+      "agent_strategy": "hybrid",
+      "access": "landing_page",
+      "mvp": true,
+      "landing_page": "http://bioinf.xmu.edu.cn/ADReCS/",
+      "license_note": "Download links vary by release. Localize ADR ontology/mechanism data when available."
+    },
+    {
+      "id": "onsides",
+      "name": "OnSIDES",
+      "module": "ade_terms",
+      "tier": "T2-T3",
+      "agent_strategy": "hybrid",
+      "access": "direct",
+      "mvp": false,
+      "large": true,
+      "landing_page": "https://github.com/tatonetti-lab/onsides",
+      "downloads": [
+        {
+          "label": "OnSIDES repository archive",
+          "url": "https://github.com/tatonetti-lab/onsides/archive/refs/heads/master.zip",
+          "filename": "onsides_master.zip"
+        }
+      ],
+      "license_note": "Use as label-derived supporting evidence, not ground truth."
+    },
+    {
+      "id": "dilirank",
+      "name": "DILIrank",
+      "module": "organ_liver",
+      "tier": "T1",
+      "agent_strategy": "local_full",
+      "access": "direct",
+      "mvp": true,
+      "landing_page": "https://www.fda.gov/science-research/liver-toxicity-knowledge-base-ltkb/drug-induced-liver-injury-rank-dilirank-dataset",
+      "downloads": [
+        {
+          "label": "DILIrank 2.0 dataset XLSX",
+          "url": "https://www.fda.gov/media/113052/download?attachment",
+          "filename": "DILIrank_2.0.xlsx"
+        }
+      ],
+      "license_note": "FDA media link (media/113052) for DILIrank 2.0; confirm current link from the FDA landing page when versioning."
+    },
+    {
+      "id": "livertox",
+      "name": "LiverTox",
+      "module": "organ_liver",
+      "tier": "T1",
+      "agent_strategy": "hybrid",
+      "access": "api",
+      "mvp": true,
+      "landing_page": "https://www.ncbi.nlm.nih.gov/books/NBK547852/",
+      "license_note": "Build local text/index snapshots for MVP drugs; use NCBI APIs or manual export for updates."
+    },
+    {
+      "id": "dilist",
+      "name": "DILIst",
+      "module": "organ_liver",
+      "tier": "T1-T2",
+      "agent_strategy": "local_full",
+      "access": "landing_page",
+      "mvp": true,
+      "landing_page": "https://www.fda.gov/science-research/liver-toxicity-knowledge-base-ltkb",
+      "license_note": "Add exact download link after confirming the current release location."
+    },
+    {
+      "id": "ltkb",
+      "name": "Liver Toxicity Knowledge Base",
+      "module": "organ_liver",
+      "tier": "T1-T2",
+      "agent_strategy": "local_full",
+      "access": "landing_page",
+      "mvp": true,
+      "landing_page": "https://www.fda.gov/science-research/liver-toxicity-knowledge-base-ltkb",
+      "license_note": "Use versioned FDA LTKB downloads where available."
+    },
+    {
+      "id": "open_tggates",
+      "name": "Open TG-GATEs",
+      "module": "organ_liver",
+      "tier": "T2",
+      "agent_strategy": "hybrid",
+      "access": "landing_page",
+      "mvp": true,
+      "large": true,
+      "landing_page": "https://toxico.nibiohn.go.jp/english/",
+      "license_note": "Large toxicogenomics data. Localize liver/kidney MVP subsets after registration/terms check."
+    },
+    {
+      "id": "toxcast_tox21",
+      "name": "ToxCast/Tox21",
+      "module": "organ_liver",
+      "tier": "T2",
+      "agent_strategy": "hybrid",
+      "access": "landing_page",
+      "mvp": true,
+      "large": true,
+      "landing_page": "https://www.epa.gov/comptox-tools/toxicity-forecasting-toxcast",
+      "license_note": "Use EPA download pages or invitrodb releases; localize organ-relevant assay subsets."
+    },
+    {
+      "id": "chembl_herg",
+      "name": "ChEMBL hERG curated subset",
+      "module": "organ_cardiac",
+      "tier": "T2",
+      "agent_strategy": "local_full",
+      "access": "api",
+      "mvp": true,
+      "landing_page": "https://www.ebi.ac.uk/chembl/",
+      "license_note": "Build from ChEMBL local dump or API assays targeting KCNH2/hERG."
+    },
+    {
+      "id": "label_information",
+      "name": "Regulatory drug label information",
+      "module": "organ_cardiac",
+      "tier": "T1",
+      "agent_strategy": "hybrid",
+      "access": "api",
+      "mvp": true,
+      "landing_page": "https://open.fda.gov/apis/drug/label/",
+      "license_note": "Keep local warning/precaution snapshots; use openFDA/FDA label APIs for latest checks."
+    },
+    {
+      "id": "iuphar_gtopdb",
+      "name": "IUPHAR Guide to Pharmacology",
+      "module": "mechanism",
+      "tier": "T1-T2",
+      "agent_strategy": "hybrid",
+      "access": "direct",
+      "mvp": true,
+      "large": true,
+      "landing_page": "https://www.guidetopharmacology.org/download.jsp",
+      "downloads": [
+        {
+          "label": "GtoPdb interactions CSV",
+          "url": "https://www.guidetopharmacology.org/DATA/interactions.csv",
+          "filename": "interactions.csv"
+        },
+        {
+          "label": "GtoPdb ligands CSV",
+          "url": "https://www.guidetopharmacology.org/DATA/ligands.csv",
+          "filename": "ligands.csv"
+        },
+        {
+          "label": "GtoPdb targets CSV",
+          "url": "https://www.guidetopharmacology.org/DATA/targets.csv",
+          "filename": "targets.csv"
+        }
+      ],
+      "license_note": "Localize core pharmacology interactions for DTI retrieval."
+    },
+    {
+      "id": "bindingdb",
+      "name": "BindingDB",
+      "module": "mechanism",
+      "tier": "T2-T3",
+      "agent_strategy": "hybrid",
+      "access": "landing_page",
+      "mvp": false,
+      "large": true,
+      "landing_page": "https://www.bindingdb.org/rwd/bind/chemsearch/marvin/SDFdownload.jsp",
+      "license_note": "Large and assay-heterogeneous. Localize selected targets if needed."
+    },
+    {
+      "id": "pharmgkb_pathways",
+      "name": "PharmGKB pathways",
+      "module": "mechanism",
+      "tier": "T1-T2",
+      "agent_strategy": "local_full",
+      "access": "direct",
+      "mvp": true,
+      "landing_page": "https://www.pharmgkb.org/downloads",
+      "downloads": [
+        {
+          "label": "PharmGKB pathways TSV",
+          "url": "https://api.pharmgkb.org/v1/download/file/data/pathways.zip",
+          "filename": "pharmgkb_pathways.zip"
+        }
+      ],
+      "license_note": "Use under PharmGKB data use terms; localize for PK/PD pathway retrieval."
+    },
+    {
+      "id": "smpdb",
+      "name": "SMPDB",
+      "module": "mechanism",
+      "tier": "T2",
+      "agent_strategy": "hybrid",
+      "access": "manual_license",
+      "mvp": false,
+      "landing_page": "https://smpdb.ca/downloads",
+      "license_note": "Check academic/commercial terms before localizing."
+    },
+    {
+      "id": "cpic",
+      "name": "CPIC",
+      "module": "personalization",
+      "tier": "T1",
+      "agent_strategy": "local_full",
+      "access": "direct",
+      "mvp": true,
+      "landing_page": "https://cpicpgx.org/genes-drugs/",
+      "downloads": [
+        {
+          "label": "CPIC gene-drug pairs (REST API, full table as JSON)",
+          "url": "https://api.cpicpgx.org/v1/pair",
+          "filename": "cpic_pairs.json"
+        }
+      ],
+      "license_note": "CPIC publishes pairs via the api.cpicpgx.org PostgREST endpoint (634 pairs). Records carry cpiclevel/clinpgxlevel; capture retrieved_at as version proxy."
+    },
+    {
+      "id": "dpwg",
+      "name": "DPWG",
+      "module": "personalization",
+      "tier": "T1",
+      "agent_strategy": "local_full",
+      "access": "direct",
+      "mvp": true,
+      "landing_page": "https://www.pharmgkb.org/page/dpwg",
+      "downloads": [
+        {
+          "label": "PharmGKB guideline annotations (CPIC + DPWG)",
+          "url": "https://api.pharmgkb.org/v1/download/file/data/guidelineAnnotations.json.zip",
+          "filename": "guidelineAnnotations.json.zip"
+        }
+      ],
+      "license_note": "DPWG guidelines are distributed via PharmGKB guidelineAnnotations.json.zip (also contains CPIC). Use under PharmGKB data use policy; filter source=DPWG after import."
+    },
+    {
+      "id": "pharmgkb",
+      "name": "PharmGKB",
+      "module": "personalization",
+      "tier": "T1-T2",
+      "agent_strategy": "hybrid",
+      "access": "direct",
+      "mvp": true,
+      "landing_page": "https://www.pharmgkb.org/downloads",
+      "downloads": [
+        {
+          "label": "PharmGKB clinical annotations",
+          "url": "https://api.pharmgkb.org/v1/download/file/data/clinicalAnnotations.zip",
+          "filename": "clinicalAnnotations.zip"
+        },
+        {
+          "label": "PharmGKB chemicals",
+          "url": "https://api.pharmgkb.org/v1/download/file/data/chemicals.zip",
+          "filename": "chemicals.zip"
+        },
+        {
+          "label": "PharmGKB genes",
+          "url": "https://api.pharmgkb.org/v1/download/file/data/genes.zip",
+          "filename": "genes.zip"
+        },
+        {
+          "label": "PharmGKB variants",
+          "url": "https://api.pharmgkb.org/v1/download/file/data/variants.zip",
+          "filename": "variants.zip"
+        }
+      ],
+      "license_note": "Use under PharmGKB data use policy; API/cache for updates and long-tail annotations."
+    },
+    {
+      "id": "clinvar",
+      "name": "ClinVar",
+      "module": "personalization",
+      "tier": "T1-T2",
+      "agent_strategy": "hybrid",
+      "access": "direct",
+      "mvp": true,
+      "large": true,
+      "landing_page": "https://ftp.ncbi.nlm.nih.gov/pub/clinvar/tab_delimited/",
+      "downloads": [
+        {
+          "label": "ClinVar variant summary",
+          "url": "https://ftp.ncbi.nlm.nih.gov/pub/clinvar/tab_delimited/variant_summary.txt.gz",
+          "filename": "variant_summary.txt.gz"
+        }
+      ],
+      "license_note": "Filter PGx/drug-relevant variants into local subset."
+    },
+    {
+      "id": "open_targets",
+      "name": "Open Targets",
+      "module": "personalization",
+      "tier": "T2",
+      "agent_strategy": "hybrid",
+      "access": "api",
+      "mvp": false,
+      "landing_page": "https://platform-docs.opentargets.org/data-access/graphql-api",
+      "license_note": "Use API or selected downloads for gene-disease evidence."
+    },
+    {
+      "id": "ctd",
+      "name": "Comparative Toxicogenomics Database",
+      "module": "personalization",
+      "tier": "T2-T3",
+      "agent_strategy": "hybrid",
+      "access": "landing_page",
+      "mvp": false,
+      "landing_page": "https://ctdbase.org/downloads/",
+      "license_note": "Use curated subsets as supporting evidence; inferred links should be tagged weak."
+    },
+    {
+      "id": "ddi_rules",
+      "name": "DDI rule library",
+      "module": "personalization",
+      "tier": "T1-T2",
+      "agent_strategy": "local_full",
+      "access": "manual_license",
+      "mvp": true,
+      "landing_page": "https://www.fda.gov/drugs/drug-interactions-labeling/drug-development-and-drug-interactions-table-substrates-inhibitors-and-inducers",
+      "license_note": "Assemble local rules from FDA tables, labels, DrugBank/DDInter as allowed."
+    },
+    {
+      "id": "beers_organ_function_rules",
+      "name": "Beers and organ-function rules",
+      "module": "personalization",
+      "tier": "T1-T2",
+      "agent_strategy": "local_full",
+      "access": "manual_license",
+      "mvp": true,
+      "landing_page": "https://www.americangeriatrics.org/",
+      "license_note": "Guideline/license terms apply. Store local structured rules with source/version metadata."
+    },
+    {
+      "id": "persade",
+      "name": "PersADE",
+      "module": "personalization",
+      "tier": "own-high/medium/low",
+      "agent_strategy": "local_full",
+      "access": "manual_license",
+      "mvp": true,
+      "version": null,
+      "landing_page": "https://idrblab.org/PersADE",
+      "manual_files": [
+        {
+          "filename": "data/PersADE/",
+          "role": "full_dataset",
+          "description": "Own/provided core dataset: personalized drug-ADE associations with ROR/PRR/priority scores, plus DTI (drug-target) and DTA (drug-target-ADE) edges and MeSH/UMLS ADE ontology. Headerless TSVs; schema in Mysql_input.txt.",
+          "use": "Stage-1 known drug-ADE spectrum + target/pathway mechanism; Stage-2 PGx/DDI."
+        }
+      ],
+      "license_note": "Own, provided. Already placed under data/PersADE/ (raw, read-only; NOT under data/raw/). Subsumes ADReCS-Target (protein-ADE) via DTA.txt and BindingDB-style DTI via DTI.txt. Keyed by InChIKey (drug) / UMLS (ADE) / UniProt (target)."
+    },
+    {
+      "id": "ddinter2",
+      "name": "DDInter 2.0",
+      "module": "personalization",
+      "tier": "T2",
+      "agent_strategy": "local_full",
+      "access": "direct",
+      "mvp": true,
+      "landing_page": "https://ddinter2.scbdd.com",
+      "downloads": [
+        {
+          "label": "DDInter2 DDIs (ATC group A)",
+          "url": "https://ddinter2.scbdd.com/static/media/download/ddinter_downloads_code_A.csv",
+          "filename": "ddinter_downloads_code_A.csv"
+        },
+        {
+          "label": "DDInter2 DDIs (ATC group B)",
+          "url": "https://ddinter2.scbdd.com/static/media/download/ddinter_downloads_code_B.csv",
+          "filename": "ddinter_downloads_code_B.csv"
+        },
+        {
+          "label": "DDInter2 DDIs (ATC group C)",
+          "url": "https://ddinter2.scbdd.com/static/media/download/ddinter_downloads_code_C.csv",
+          "filename": "ddinter_downloads_code_C.csv"
+        },
+        {
+          "label": "DDInter2 DDIs (ATC group D)",
+          "url": "https://ddinter2.scbdd.com/static/media/download/ddinter_downloads_code_D.csv",
+          "filename": "ddinter_downloads_code_D.csv"
+        },
+        {
+          "label": "DDInter2 DDIs (ATC group G)",
+          "url": "https://ddinter2.scbdd.com/static/media/download/ddinter_downloads_code_G.csv",
+          "filename": "ddinter_downloads_code_G.csv"
+        },
+        {
+          "label": "DDInter2 DDIs (ATC group H)",
+          "url": "https://ddinter2.scbdd.com/static/media/download/ddinter_downloads_code_H.csv",
+          "filename": "ddinter_downloads_code_H.csv"
+        },
+        {
+          "label": "DDInter2 DDIs (ATC group L)",
+          "url": "https://ddinter2.scbdd.com/static/media/download/ddinter_downloads_code_L.csv",
+          "filename": "ddinter_downloads_code_L.csv"
+        },
+        {
+          "label": "DDInter2 DDIs (ATC group M)",
+          "url": "https://ddinter2.scbdd.com/static/media/download/ddinter_downloads_code_M.csv",
+          "filename": "ddinter_downloads_code_M.csv"
+        },
+        {
+          "label": "DDInter2 DDIs (ATC group N)",
+          "url": "https://ddinter2.scbdd.com/static/media/download/ddinter_downloads_code_N.csv",
+          "filename": "ddinter_downloads_code_N.csv"
+        },
+        {
+          "label": "DDInter2 DDIs (ATC group P)",
+          "url": "https://ddinter2.scbdd.com/static/media/download/ddinter_downloads_code_P.csv",
+          "filename": "ddinter_downloads_code_P.csv"
+        },
+        {
+          "label": "DDInter2 DDIs (ATC group R)",
+          "url": "https://ddinter2.scbdd.com/static/media/download/ddinter_downloads_code_R.csv",
+          "filename": "ddinter_downloads_code_R.csv"
+        },
+        {
+          "label": "DDInter2 DDIs (ATC group S)",
+          "url": "https://ddinter2.scbdd.com/static/media/download/ddinter_downloads_code_S.csv",
+          "filename": "ddinter_downloads_code_S.csv"
+        },
+        {
+          "label": "DDInter2 DDIs (ATC group V)",
+          "url": "https://ddinter2.scbdd.com/static/media/download/ddinter_downloads_code_V.csv",
+          "filename": "ddinter_downloads_code_V.csv"
+        }
+      ],
+      "license_note": "Academic free. ~300k curated DDIs with severity Level (Major/Moderate/Minor); clinical-management text lives on detail pages, not the bulk CSVs. Bulk download is per ATC level-1 group (13 files: A,B,C,D,G,H,L,M,N,P,R,S,V); each row = DDInterID_A,Drug_A,DDInterID_B,Drug_B,Level. Feeds Stage-2 DDI alongside DrugBank drug_interactions."
+    },
+    {
+      "id": "openfda_faers",
+      "name": "openFDA FAERS (adverse events)",
+      "module": "ade_terms",
+      "tier": "T4",
+      "agent_strategy": "api_cache",
+      "access": "api",
+      "mvp": true,
+      "landing_page": "https://open.fda.gov/apis/drug/event/",
+      "license_note": "Free API, no key (rate-limited). Spontaneous reports = SIGNAL only, not gold standard; use for disproportionality (counts) and to corroborate PersADE ROR. Distinct from the registered label_information (openFDA /drug/label). Query /drug/event.json and cache responses under data/cache/api_responses/."
+    },
+    {
+      "id": "pubmed",
+      "name": "PubMed",
+      "module": "literature",
+      "tier": "T-evidence",
+      "agent_strategy": "api_cache",
+      "access": "api",
+      "mvp": true,
+      "landing_page": "https://www.ncbi.nlm.nih.gov/books/NBK25501/",
+      "license_note": "Free E-utilities (esearch/efetch). Literature backing for any claim; cache PMIDs + abstracts. Reuse NCBI api_key if set to lift rate limit."
+    },
+    {
+      "id": "adrecs_target",
+      "name": "ADReCS-Target",
+      "module": "mechanism",
+      "tier": "T2",
+      "agent_strategy": "local_full",
+      "access": "landing_page",
+      "mvp": false,
+      "covered_by": "persade",
+      "landing_page": "https://bioinf.xmu.edu.cn/ADReCS-Target/",
+      "license_note": "Academic free. ADE->protein links. Per the source doc PersADE ALREADY integrates this (data/PersADE/DTA.txt = drug-target-ADE triplets). No separate deploy needed for MVP; localize only if standalone ADR->target needed."
+    },
+    {
+      "id": "admetlab3",
+      "name": "ADMETlab 3.0",
+      "module": "admet",
+      "tier": "T3",
+      "agent_strategy": "api_cache",
+      "access": "api",
+      "mvp": false,
+      "landing_page": "https://admetlab3.scbdd.com",
+      "license_note": "CC-BY-NC-SA; free, registration-free API. Predicted ADMET — overlaps the core admetSAR3 local source; use as a second predictor / tie-break and DOWN-WEIGHT (predicted T3). Cache responses."
+    },
+    {
+      "id": "netmhcpan",
+      "name": "NetMHCpan 4.1",
+      "module": "immunogenicity",
+      "tier": "T3",
+      "agent_strategy": "api_cache",
+      "access": "api",
+      "mvp": false,
+      "landing_page": "https://services.healthtech.dtu.dk/services/NetMHCpan-4.1/",
+      "license_note": "Academic free. HLA-peptide binding prediction for Stage-2 immune/HLA-risk (e.g. abacavir/HLA-B*57:01 style). Predicted -> down-weight. Not MVP; wire when the immunogenicity arm is built."
+    },
+    {
+      "id": "iedb",
+      "name": "IEDB",
+      "module": "immunogenicity",
+      "tier": "T2",
+      "agent_strategy": "api_cache",
+      "access": "api",
+      "mvp": false,
+      "landing_page": "https://www.iedb.org/",
+      "license_note": "Free. Immune-epitope reference; pairs with NetMHCpan for the Stage-2 immunogenicity arm. API at tools-cluster-interface.iedb.org. Not MVP."
+    }
+  ]
+}

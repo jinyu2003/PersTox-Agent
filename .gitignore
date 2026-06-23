@@ -1,0 +1,30 @@
+# --- Data: shipped as a separate archive, never committed to git ---
+# Raw sources (large; some are license-restricted: DrugBank, MedDRA, WHOCC-ATC)
+data/raw/*
+!data/raw/README.md
+# Derived / normalized tables (rebuildable from raw via scripts/)
+data/normalized/*
+!data/normalized/README.md
+# Patient-layer + predictor sources the user supplies themselves
+data/PersADE/
+data/admetsar3_all_endpoints.txt
+# Quarantined non-T1 sources (incl. GO used by pathway_enrich)
+data/quarantine_non_t1/*
+!data/quarantine_non_t1/README.md
+# API response cache + cohort cache + run manifests
+data/cache/*
+!data/cache/README.md
+data/manifests/*
+!data/manifests/.gitkeep
+# macOS archive cruft
+data/__MACOSX/
+.DS_Store
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.part
+.ipynb_checkpoints/
+*.egg-info/
+.venv/
+venv/

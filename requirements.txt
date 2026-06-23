@@ -1,0 +1,14 @@
+# PersTox-Agent runtime dependencies.
+#
+# The codebase is deliberately lean: enrichment statistics (hypergeometric,
+# Benjamini-Hochberg), k-NN similarity, TSV/XML streaming and the byte-offset
+# index are all implemented on the Python standard library — no scipy / numpy /
+# pandas. The only third-party requirement is RDKit, used for the
+# SMILES -> InChIKey bridge that joins admetSAR / DrugBank / PersADE.
+#
+# Python >= 3.10 (uses PEP 604 `X | Y` annotations).
+#
+# RDKit installs most reliably from conda-forge:
+#     conda create -n perstox python=3.10 -c conda-forge rdkit
+# A pip wheel is also published:
+rdkit>=2023.3
