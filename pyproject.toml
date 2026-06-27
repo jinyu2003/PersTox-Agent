@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "PerTox-agent"
+version = "0.1.0"
+description = "LangGraph-based agent for personalized drug toxicity reasoning."
+requires-python = ">=3.10"
+dependencies = [
+  "rdkit>=2023.3",
+  "pydantic>=2.7",
+  "langgraph>=0.2.60",
+  "langchain>=0.2.16",
+  "langchain-openai>=0.1.25",
+  "openai>=1.40",
+  "typing-extensions>=4.10",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

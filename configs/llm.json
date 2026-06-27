@@ -1,0 +1,23 @@
+{
+  "provider": "deepseek",
+  "use_live_llm": true,
+  "models": {
+    "default": "deepseek-v4-flash",
+    "brain_model": "deepseek-v4-flash",
+    "knowledge_model": "deepseek-v4-flash",
+    "verifier_model": "deepseek-v4-flash"
+  },
+  "base_urls": {
+    "deepseek": "https://api.deepseek.com",
+    "openai": null
+  },
+  "api_key_envs": {
+    "deepseek": "DEEPSEEK_API_KEY",
+    "openai": "OPENAI_API_KEY"
+  },
+  "generation": {
+    "max_tokens": 2048,
+    "temperature": 0,
+    "attribution_parallelism": 2
+  }
+}
